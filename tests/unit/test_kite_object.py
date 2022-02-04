@@ -21,9 +21,6 @@ def get_fake_delete(self, route, params=None):
 
 class TestKiteConnectObject:
 
-    def test_login_url(self, kiteconnect):
-        assert kiteconnect.login_url() == "https://kite.trade/connect/login?api_key=<API-KEY>&v=3"
-
     def test_request_without_pooling(self, kiteconnect):
         assert isinstance(kiteconnect.reqsession, requests.Session) is False
         assert kiteconnect.reqsession.request is not None
@@ -65,19 +62,3 @@ class TestKiteConnectObject:
         # Change it back
         kiteconnect.set_access_token("<ACCESS-TOKEN>")
 
-    @patch.object(KiteConnect, "_post", get_fake_token)
-    def test_generate_session(self, kiteconnect):
-        resp = kiteconnect.generate_session(
-            request_token="<REQUEST-TOKEN>",
-            api_secret="<API-SECRET>"
-        )
-        assert resp["access_token"] == "TOKEN"
-        assert kiteconnect.access_token == "TOKEN"
-
-        # Change it back
-        kiteconnect.set_access_token("<ACCESS-TOKEN>")
-
-    @patch.object(KiteConnect, "_delete", get_fake_delete)
-    def test_invalidate_token(self, kiteconnect):
-        resp = kiteconnect.invalidate_access_token(access_token="<ACCESS-TOKEN>")
-        assert resp["message"] == "token invalidated"

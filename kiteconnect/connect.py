@@ -36,6 +36,11 @@ class KiteConnect(object):
     _default_login_uri = "https://kite.trade/connect/login"
     _default_timeout = 7  # In seconds
 
+    # User endpoints
+    _new_login_uri = "https://kite.zerodha.com/api/login"
+    _new_twofa_uri = "https://kite.zerodha.com/api/twofa"
+    _new_logout_uri = "https://kite.zerodha.com/logout"
+
     # Constants
     # Products
     PRODUCT_MIS = "MIS"
@@ -161,7 +166,6 @@ class KiteConnect(object):
     }
 
     def __init__(self,
-                 api_key,
                  access_token=None,
                  root=None,
                  debug=False,
@@ -192,7 +196,7 @@ class KiteConnect(object):
         If set requests won't throw SSLError if its set to custom `root` url without SSL.
         """
         self.debug = debug
-        self.api_key = api_key
+        self.api_key = "kitefront"
         self.session_expiry_hook = None
         self.disable_ssl = disable_ssl
         self.access_token = access_token
@@ -201,8 +205,12 @@ class KiteConnect(object):
         self.root = root or self._default_root_uri
         self.timeout = timeout or self._default_timeout
 
+        # Different session for kite.zerodha.com endpoint. Used to create/destroy access token.
+        self.usersession = requests.Session()
+
         # Create requests session only if pool exists. Reuse session
-        # for every request. Otherwise create session for each request
+        # for every request. Otherwise, create session for each request
+
         if pool:
             self.reqsession = requests.Session()
             reqadapter = requests.adapters.HTTPAdapter(**pool)
@@ -212,6 +220,48 @@ class KiteConnect(object):
 
         # disable requests SSL warning
         requests.packages.urllib3.disable_warnings()
+
+    def login(self, user_id, user_password, user_pin):
+        """
+        Logs in user to generate access token.
+        """
+        login_resp = self.usersession.post(self._new_login_uri,
+                                           data={
+                                               "user_id": user_id,
+                                               "password": user_password}
+                                           )
+
+        if self.debug:
+            log.debug(
+                "Login Response: {code} {content}".format(code=login_resp.status_code, content=login_resp.content))
+
+        request_id = login_resp.json()["data"]["request_id"]
+
+        tfa_resp = self.usersession.post(self._new_twofa_uri,
+                                         data={
+                                             "user_id": user_id,
+                                             "request_id": request_id,
+                                             "twofa_value": user_pin,
+                                             "skip_session": ""
+                                         }
+                                         )
+
+        enc_token = tfa_resp.cookies.get("enctoken")
+
+        if self.debug:
+            log.debug(
+                "2FA Response: {code} {content} {cookies}".format(code=tfa_resp.status_code,
+                                                                  content=tfa_resp.content,
+                                                                  cookies=tfa_resp.cookies))
+
+        self.set_access_token(enc_token)
+        return True
+
+    def logout(self):
+        """
+        Logs out the user session to invalidate access token.
+        """
+        self.usersession.get(self._new_logout_uri)
 
     def set_session_expiry_hook(self, method):
         """
@@ -236,84 +286,6 @@ class KiteConnect(object):
     def set_access_token(self, access_token):
         """Set the `access_token` received after a successful authentication."""
         self.access_token = access_token
-
-    def login_url(self):
-        """Get the remote login url to which a user should be redirected to initiate the login flow."""
-        return "%s?api_key=%s&v=3" % (self._default_login_uri, self.api_key)
-
-    def generate_session(self, request_token, api_secret):
-        """
-        Generate user session details like `access_token` etc by exchanging `request_token`.
-        Access token is automatically set if the session is retrieved successfully.
-
-        Do the token exchange with the `request_token` obtained after the login flow,
-        and retrieve the `access_token` required for all subsequent requests. The
-        response contains not just the `access_token`, but metadata for
-        the user who has authenticated.
-
-        - `request_token` is the token obtained from the GET paramers after a successful login redirect.
-        - `api_secret` is the API api_secret issued with the API key.
-        """
-        h = hashlib.sha256(self.api_key.encode("utf-8") + request_token.encode("utf-8") + api_secret.encode("utf-8"))
-        checksum = h.hexdigest()
-
-        resp = self._post("api.token", params={
-            "api_key": self.api_key,
-            "request_token": request_token,
-            "checksum": checksum
-        })
-
-        if "access_token" in resp:
-            self.set_access_token(resp["access_token"])
-
-        if resp["login_time"] and len(resp["login_time"]) == 19:
-            resp["login_time"] = dateutil.parser.parse(resp["login_time"])
-
-        return resp
-
-    def invalidate_access_token(self, access_token=None):
-        """
-        Kill the session by invalidating the access token.
-
-        - `access_token` to invalidate. Default is the active `access_token`.
-        """
-        access_token = access_token or self.access_token
-        return self._delete("api.token.invalidate", params={
-            "api_key": self.api_key,
-            "access_token": access_token
-        })
-
-    def renew_access_token(self, refresh_token, api_secret):
-        """
-        Renew expired `refresh_token` using valid `refresh_token`.
-
-        - `refresh_token` is the token obtained from previous successful login flow.
-        - `api_secret` is the API api_secret issued with the API key.
-        """
-        h = hashlib.sha256(self.api_key.encode("utf-8") + refresh_token.encode("utf-8") + api_secret.encode("utf-8"))
-        checksum = h.hexdigest()
-
-        resp = self._post("api.token.renew", params={
-            "api_key": self.api_key,
-            "refresh_token": refresh_token,
-            "checksum": checksum
-        })
-
-        if "access_token" in resp:
-            self.set_access_token(resp["access_token"])
-
-        return resp
-
-    def invalidate_refresh_token(self, refresh_token):
-        """
-        Invalidate refresh token.
-
-        - `refresh_token` is the token which is used to renew access token.
-        """
-        return self._delete("api.token.invalidate", params={
-            "api_key": self.api_key,
-            "refresh_token": refresh_token
-        })
 
     def margins(self, segment=None):
         """Get account balance and cash margin details for a particular segment.
@@ -351,11 +323,11 @@ class KiteConnect(object):
                     tag=None):
         """Place an order."""
         params = locals()
-        del(params["self"])
+        del (params["self"])
 
         for k in list(params.keys()):
             if params[k] is None:
-                del(params[k])
+                del (params[k])
 
         return self._post("order.place",
                           url_args={"variety": variety},
@@ -373,11 +345,11 @@ class KiteConnect(object):
                      disclosed_quantity=None):
         """Modify an open order."""
         params = locals()
-        del(params["self"])
+        del (params["self"])
 
         for k in list(params.keys()):
             if params[k] is None:
-                del(params[k])
+                del (params[k])
 
         return self._put("order.modify",
                          url_args={"variety": variety, "order_id": order_id},
@@ -403,7 +375,8 @@ class KiteConnect(object):
 
         for item in _list:
             # Convert date time string to datetime object
-            for field in ["order_timestamp", "exchange_timestamp", "created", "last_instalment", "fill_timestamp", "timestamp", "last_trade_time"]:
+            for field in ["order_timestamp", "exchange_timestamp", "created", "last_instalment", "fill_timestamp",
+                          "timestamp", "last_trade_time"]:
                 if item.get(field) and len(item[field]) == 19:
                     item[field] = dateutil.parser.parse(item[field])
 
@@ -708,7 +681,7 @@ class KiteConnect(object):
         return condition, gtt_orders
 
     def place_gtt(
-        self, trigger_type, tradingsymbol, exchange, trigger_values, last_price, orders
+            self, trigger_type, tradingsymbol, exchange, trigger_values, last_price, orders
     ):
         """
         Place GTT order
@@ -725,7 +698,8 @@ class KiteConnect(object):
         """
         # Validations.
         assert trigger_type in [self.GTT_TYPE_OCO, self.GTT_TYPE_SINGLE]
-        condition, gtt_orders = self._get_gtt_payload(trigger_type, tradingsymbol, exchange, trigger_values, last_price, orders)
+        condition, gtt_orders = self._get_gtt_payload(trigger_type, tradingsymbol, exchange, trigger_values, last_price,
+                                                      orders)
 
         return self._post("gtt.place", params={
             "condition": json.dumps(condition),
@@ -733,7 +707,7 @@ class KiteConnect(object):
             "type": trigger_type})
 
     def modify_gtt(
-        self, trigger_id, trigger_type, tradingsymbol, exchange, trigger_values, last_price, orders
+            self, trigger_id, trigger_type, tradingsymbol, exchange, trigger_values, last_price, orders
     ):
         """
         Modify GTT order
@@ -748,7 +722,8 @@ class KiteConnect(object):
             - `quantity` Quantity to transact
             - `price` The min or max price to execute the order at (for LIMIT orders)
         """
-        condition, gtt_orders = self._get_gtt_payload(trigger_type, tradingsymbol, exchange, trigger_values, last_price, orders)
+        condition, gtt_orders = self._get_gtt_payload(trigger_type, tradingsymbol, exchange, trigger_values, last_price,
+                                                      orders)
 
         return self._put("gtt.modify",
                          url_args={"trigger_id": trigger_id},
@@ -843,7 +818,8 @@ class KiteConnect(object):
 
     def _post(self, route, url_args=None, params=None, is_json=False, query_params=None):
         """Alias for sending a POST request."""
-        return self._request(route, "POST", url_args=url_args, params=params, is_json=is_json, query_params=query_params)
+        return self._request(route, "POST", url_args=url_args, params=params, is_json=is_json,
+                             query_params=query_params)
 
     def _put(self, route, url_args=None, params=None, is_json=False, query_params=None):
         """Alias for sending a PUT request."""
@@ -872,10 +848,11 @@ class KiteConnect(object):
         if self.api_key and self.access_token:
             # set authorization header
             auth_header = self.api_key + ":" + self.access_token
-            headers["Authorization"] = "token {}".format(auth_header)
+            headers["Authorization"] = "enctoken {}".format(self.access_token)
 
         if self.debug:
-            log.debug("Request: {method} {url} {params} {headers}".format(method=method, url=url, params=params, headers=headers))
+            log.debug("Request: {method} {url} {params} {headers}".format(method=method, url=url, params=params,
+                                                                          headers=headers))
 
         # prepare url query params
         if method in ["GET", "DELETE"]:

@@ -18,7 +18,7 @@ def test_request_pool():
         "pool_block": False
     }
 
-    kiteconnect = KiteConnect(api_key="random", access_token="random", pool=pool)
+    kiteconnect = KiteConnect(access_token="random", pool=pool)
 
     with pytest.raises(ex.TokenException):
         kiteconnect.orders()

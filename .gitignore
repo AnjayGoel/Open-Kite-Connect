@@ -177,7 +177,12 @@ $RECYCLE.BIN/
 # Vscode
 .vscode
 
+#Intelij
+.idea
+
 # coverage
 cov_html
 
+# Misclenous file
+misc
 # End of https://www.gitignore.io/api/osx,linux,macos,python,windows

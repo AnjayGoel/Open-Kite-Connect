@@ -1,9 +1,13 @@
 import logging
 from kiteconnect import KiteConnect
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 logging.basicConfig(level=logging.DEBUG)
 
-kite = KiteConnect(api_key="your_api_key")
+kite = KiteConnect()
 
 # Redirect the user to the login url obtained
 # from kite.login_url(), and receive the request_token
@@ -11,8 +15,7 @@ kite = KiteConnect(api_key="your_api_key")
 # Once you have the request_token, obtain the access_token
 # as follows.
 
-data = kite.generate_session("request_token_here", secret="your_secret")
-kite.set_access_token(data["access_token"])
+kite.login(os.getenv("USER_ID"), os.getenv("USER_PASSWORD"), os.getenv("USER_PIN"))
 
 # Place an order
 try:

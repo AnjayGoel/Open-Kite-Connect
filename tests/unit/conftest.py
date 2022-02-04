@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../helpers'))
 @pytest.fixture()
 def kiteconnect():
     """Init Kite connect object."""
-    kiteconnect = KiteConnect(api_key='<API-KEY>', access_token='<ACCESS-TOKEN>')
+    kiteconnect = KiteConnect(access_token='<ACCESS-TOKEN>')
     kiteconnect.root = 'http://kite_trade_test'
     return kiteconnect
 
@@ -20,16 +20,12 @@ def kiteconnect():
 @pytest.fixture()
 def kiteconnect_with_pooling():
     """Init kite connect object with pooling."""
-    kiteconnect = KiteConnect(
-        api_key="<API-KEY>",
-        access_token="<ACCESS-TOKEN>",
-        pool={
-            "pool_connections": 20,
-            "pool_maxsize": 10,
-            "max_retries": 2,
-            "pool_block": False
-        }
-    )
+    kiteconnect = KiteConnect(access_token="<ACCESS-TOKEN>", pool={
+        "pool_connections": 20,
+        "pool_maxsize": 10,
+        "max_retries": 2,
+        "pool_block": False
+    })
     return kiteconnect
 
 

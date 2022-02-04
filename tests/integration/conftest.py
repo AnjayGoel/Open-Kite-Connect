@@ -35,4 +35,4 @@ def pytest_generate_tests(metafunc):
 @pytest.fixture()
 def kiteconnect(api_key, access_token, root_url):
     """Init Kite connect object."""
-    return KiteConnect(api_key=api_key, access_token=access_token, root=root_url or None)
+    return KiteConnect(access_token=access_token, root=root_url or None)
