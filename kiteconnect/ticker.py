@@ -20,6 +20,7 @@ from twisted.python import log as twisted_log
 from twisted.internet.protocol import ReconnectingClientFactory
 from autobahn.twisted.websocket import WebSocketClientProtocol, \
     WebSocketClientFactory, connectWS
+from urllib.parse import quote_plus
 
 from .__version__ import __version__, __title__
 
@@ -172,7 +173,10 @@ class KiteTickerClientFactory(WebSocketClientFactory, ReconnectingClientFactory)
     def clientConnectionFailed(self, connector, reason):  # noqa
         """On connection failure (When connect request fails)"""
         if self.retries > 0:
-            log.error("Retrying connection. Retry attempt count: {}. Next retry in around: {} seconds".format(self.retries, int(round(self.delay))))
+            log.error(
+                "Retrying connection. Retry attempt count: {}. Next retry in around: {} seconds".format(self.retries,
+                                                                                                        int(round(
+                                                                                                            self.delay))))
 
             # on reconnect callback
             if self.on_reconnect:
@@ -402,7 +406,7 @@ class KiteTicker(object):
     # Maximum number or retries user can set
     _maximum_reconnect_max_tries = 300
 
-    def __init__(self, api_key, access_token, debug=False, root=None,
+    def __init__(self, access_token, debug=False, root=None,
                  reconnect=True, reconnect_max_tries=RECONNECT_MAX_TRIES, reconnect_max_delay=RECONNECT_MAX_DELAY,
                  connect_timeout=CONNECT_TIMEOUT):
         """
@@ -423,31 +427,34 @@ class KiteTicker(object):
         - `connect_timeout` in seconds is the maximum interval after which connection is considered as timeout. Defaults to 30s.
         """
         self.root = root or self.ROOT_URI
-
+        access_token = quote_plus(access_token)
+        api_key = "kitefront"
         # Set max reconnect tries
         if reconnect_max_tries > self._maximum_reconnect_max_tries:
-            log.warning("`reconnect_max_tries` can not be more than {val}. Setting to highest possible value - {val}.".format(
-                val=self._maximum_reconnect_max_tries))
+            log.warning(
+                "`reconnect_max_tries` can not be more than {val}. Setting to highest possible value - {val}.".format(
+                    val=self._maximum_reconnect_max_tries))
             self.reconnect_max_tries = self._maximum_reconnect_max_tries
         else:
             self.reconnect_max_tries = reconnect_max_tries
 
         # Set max reconnect delay
         if reconnect_max_delay < self._minimum_reconnect_max_delay:
-            log.warning("`reconnect_max_delay` can not be less than {val}. Setting to lowest possible value - {val}.".format(
-                val=self._minimum_reconnect_max_delay))
+            log.warning(
+                "`reconnect_max_delay` can not be less than {val}. Setting to lowest possible value - {val}.".format(
+                    val=self._minimum_reconnect_max_delay))
             self.reconnect_max_delay = self._minimum_reconnect_max_delay
         else:
             self.reconnect_max_delay = reconnect_max_delay
 
         self.connect_timeout = connect_timeout
 
-        self.socket_url = "{root}?api_key={api_key}"\
-            "&access_token={access_token}".format(
-                root=self.root,
-                api_key=api_key,
-                access_token=access_token
-            )
+        self.socket_url = "{root}?api_key={api_key}" \
+                          "&enctoken={access_token}".format(
+            root=self.root,
+            api_key=api_key,
+            access_token=access_token
+        )
 
         # Debug enables logs
         self.debug = debug
@@ -595,7 +602,7 @@ class KiteTicker(object):
 
             for token in instrument_tokens:
                 try:
-                    del(self.subscribed_tokens[token])
+                    del (self.subscribed_tokens[token])
                 except KeyError:
                     pass
 
@@ -762,7 +769,7 @@ class KiteTicker(object):
 
                 # Compute the change price using close price and last price
                 d["change"] = 0
-                if(d["ohlc"]["close"] != 0):
+                if (d["ohlc"]["close"] != 0):
                     d["change"] = (d["last_price"] - d["ohlc"]["close"]) * 100 / d["ohlc"]["close"]
 
                 # Full mode with timestamp
@@ -799,7 +806,7 @@ class KiteTicker(object):
 
                 # Compute the change price using close price and last price
                 d["change"] = 0
-                if(d["ohlc"]["close"] != 0):
+                if (d["ohlc"]["close"] != 0):
                     d["change"] = (d["last_price"] - d["ohlc"]["close"]) * 100 / d["ohlc"]["close"]
 
                 # Parse full mode

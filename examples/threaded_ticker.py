@@ -12,13 +12,17 @@
 ###############################################################################
 
 import time
+import os
 import logging
-from kiteconnect import KiteTicker
+from kiteconnect import KiteTicker, KiteConnect
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.DEBUG)
 
 # Initialise.
-kws = KiteTicker("your_api_key", "your_access_token")
+kite = KiteConnect(debug=True)
+kite.login(os.getenv("USER_ID"), os.getenv("USER_PASSWORD"), os.getenv("USER_PIN"))
+kws = KiteTicker(kite.access_token)
 
 # RELIANCE BSE
 tokens = [738561]

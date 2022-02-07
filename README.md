@@ -6,7 +6,9 @@ Fork of the official [Python client](https://github.com/zerodha/pykiteconnect), 
 
 Apart from authorization, works same as the official client.
 
-**Example**
+### Example
+
+**HTTP**
 
 ```python
 import logging
@@ -24,6 +26,17 @@ print(kite.profile())
 kite.logout()
 
 ```
+
+**WebSocket**
+
+```python
+kite = KiteConnect(debug=True)
+kite.login(os.getenv("USER_ID"), os.getenv("USER_PASSWORD"), os.getenv("USER_PIN"))
+kws = KiteTicker(kite.access_token)
+# Full code in examples folder
+```
+
+For more examples, see examples folder
 
 ### How does it work?
 

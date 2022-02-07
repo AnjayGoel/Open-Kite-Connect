@@ -8,13 +8,6 @@ load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
 
 kite = KiteConnect()
-
-# Redirect the user to the login url obtained
-# from kite.login_url(), and receive the request_token
-# from the registered redirect url after the login flow.
-# Once you have the request_token, obtain the access_token
-# as follows.
-
 kite.login(os.getenv("USER_ID"), os.getenv("USER_PASSWORD"), os.getenv("USER_PIN"))
 
 # Place an order

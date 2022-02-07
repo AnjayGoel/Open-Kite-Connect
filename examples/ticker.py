@@ -7,18 +7,24 @@
 # This example shows how to subscribe and get ticks from Kite Connect ticker,
 # For more info read documentation - https://kite.trade/docs/connect/v1/#streaming-websocket
 ###############################################################################
-
+from dotenv import load_dotenv
 import logging
-from kiteconnect import KiteTicker
+from kiteconnect import KiteTicker, KiteConnect
+import os
 
+load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
 
 # Initialise
-kws = KiteTicker("your_api_key", "your_access_token")
+kite = KiteConnect(debug=True)
+kite.login(os.getenv("USER_ID"), os.getenv("USER_PASSWORD"), os.getenv("USER_PIN"))
+kws = KiteTicker(kite.access_token)
+
 
 def on_ticks(ws, ticks):  # noqa
     # Callback to receive ticks.
     logging.info("Ticks: {}".format(ticks))
+
 
 def on_connect(ws, response):  # noqa
     # Callback on successful connect.
@@ -28,8 +34,10 @@ def on_connect(ws, response):  # noqa
     # Set RELIANCE to tick in `full` mode.
     ws.set_mode(ws.MODE_FULL, [738561])
 
+
 def on_order_update(ws, data):
     logging.debug("Order update : {}".format(data))
+
 
 # Assign the callbacks.
 kws.on_ticks = on_ticks
